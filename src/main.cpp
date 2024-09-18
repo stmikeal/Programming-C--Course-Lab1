@@ -1,39 +1,52 @@
 #include "iostream"
 #include "string"
 #include <fstream>
+#include <filesystem>
+#include <map>
+#include <regex>
 
 using namespace std;
+using namespace std::filesystem;
 
-int generate_file(string pre_path) {
-	ifstream fin(("sample/input/" + pre_path).c_str());
-	ofstream fout(("sample/output/" + pre_path).c_str());
+std::string input_path {"./sample/input/"}, 
+			template_path {"./sample/template/"};
 
-	string type1, type2;
-	fin >> type1;
-	fin >> type2;
 
-	cout << "Sample: " << pre_path << ", types: " << type1 << ' and ' << type2  << endl;
-	
-	fout << "#include <iostream>" << endl;
-	fout << "int f(void) {"<< endl;
-	fout << type1 << " var1 = 1;"<< endl;
-	fout << type1 << " var2 {3};"<< endl;
-	fout << "std::cout << var1 + var2 << std::endl;"<< endl;
-	fout << "return 0;" << endl;
-	fout << "}" << endl;
+
+int generate_tests(string input_path, string template_path) {
+	string line;
+	map<string, string> macro_table;
+
+	ifstream farg(input_path);
+	if (farg.is_open()) {
+		farg >> macro_table["type1"] >> macro_table["type2"] >> macro_table["value1"] >> macro_table["value2"];
+		macro_table["sample_name"] = input_path.substr(input_path.find("input/") + 6);
+	} else {
+		return 1;
+	}
+	farg.close();
+
+	ifstream fin(template_path);
+	ofstream fout(regex_replace(input_path, regex("input"), "output") + 
+				template_path.substr(template_path.find("_")));
+
+	while(fin.is_open() && fout.is_open() && getline(fin,line)) {
+		for (const auto& [macro, value] : macro_table) {
+			line = regex_replace(line, regex(macro), value);
+		}
+		fout << line << endl;
+	}
+
+	fin.close();
 	fout.close();
+	return 0;
 }
 
 int main(int argc, char* argv[]){
-	if (argc > 1) {
-		for(int arg_index = 1; arg_index < argc; arg_index++) {
-			generate_file(string(argv[arg_index]));
+    for (auto &ip : directory_iterator(input_path)) {
+		for (auto &tp : directory_iterator(template_path)) {
+        	generate_tests(ip.path(), tp.path());
 		}
-	} else {
-		string path;
-		cout << "Enter sample name: "  << endl;
-		cin >> path;
-		generate_file(path);
 	}
 	return 0;
 }
